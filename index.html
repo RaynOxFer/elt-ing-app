@@ -18,8 +18,9 @@
         let currentUserRole = null;
         let tempSelectedCoursePdfs = []; 
         let tempSelectedExercisePdfs = [];
+        let filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; // Moved here
 
-        // --- DOM Elements (now within module scope, initialized in DOMContentLoaded) ---
+        // --- DOM Elements (declared here, initialized in DOMContentLoaded) ---
         let loginView, appView;
         let loginForm, studentLoginBtn, loginError;
         let adminContent, addCourseForm;
@@ -40,430 +41,8 @@
         const iconSmallRemove = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>`;
 
 
-        // --- Core Functions (now within module scope) ---
-        function switchView(viewToShow) { 
-            loginView.classList.remove('active'); 
-            appView.classList.remove('active'); 
-            if (viewToShow === 'login') loginView.classList.add('active'); 
-            else if (viewToShow === 'app') appView.classList.add('active'); 
-        }
-
-        function updateUserUI() { 
-            if (currentUserRole === 'admin') { 
-                adminContent.style.display = 'block'; 
-                userRoleDisplay.textContent = 'Admin Mode'; 
-                userRoleDisplay.classList.remove('bg-emerald-700'); 
-                userRoleDisplay.classList.add('bg-blue-700'); 
-            } else if (currentUserRole === 'student') { 
-                adminContent.style.display = 'none'; 
-                userRoleDisplay.textContent = 'Student Mode'; 
-                userRoleDisplay.classList.remove('bg-blue-700'); 
-                userRoleDisplay.classList.add('bg-emerald-700'); 
-            } 
-            renderCourses(); 
-        }
-
-        function handleLogin(role, username, password) { 
-            loginError.textContent = ''; 
-            if (role === 'admin') { 
-                if (username === 'admin' && password === 'admin') { 
-                    currentUserRole = 'admin'; 
-                    sessionStorage.setItem('userRole', 'admin'); 
-                    switchView('app'); 
-                    updateUserUI(); 
-                } else { 
-                    loginError.textContent = 'Invalid admin credentials.'; 
-                } 
-            } else if (role === 'student') { 
-                currentUserRole = 'student'; 
-                sessionStorage.setItem('userRole', 'student'); 
-                switchView('app'); 
-                updateUserUI(); 
-            } 
-        }
-
-        function handleLogout() { 
-            currentUserRole = null; 
-            sessionStorage.removeItem('userRole'); 
-            switchView('login'); 
-        }
-        
-        function renderFilePreviewList(filesArray, previewContainer, onRemoveCallback) {
-            previewContainer.innerHTML = '';
-            if (filesArray.length === 0) {
-                previewContainer.innerHTML = '<p class="text-xs text-gray-400 p-1 italic">No files selected/available.</p>';
-                return;
-            }
-            filesArray.forEach(file => {
-                const item = document.createElement('div');
-                item.className = 'file-preview-item';
-                item.innerHTML = `<span class="file-name-preview">${file.name}</span>
-                                  <button type="button" class="btn-icon text-red-500 hover:text-red-600 remove-preview-btn" data-file-id="${file.id}">${iconSmallRemove}</button>`;
-                item.querySelector('button.remove-preview-btn').addEventListener('click', () => onRemoveCallback(file.id));
-                previewContainer.appendChild(item);
-            });
-        }
-        
-        function updateAddFormFilePreview(fileListFromInput, targetTempArray, previewContainer) {
-            targetTempArray.length = 0; 
-            for (let i = 0; i < fileListFromInput.length; i++) {
-                targetTempArray.push({ id: `temp_${Date.now()}_${i}`, name: fileListFromInput[i].name, fileObject: fileListFromInput[i] });
-            }
-            renderFilePreviewList(targetTempArray, previewContainer, (fileIdToRemove) => {
-                const inputElement = document.getElementById(previewContainer.id.replace('Preview', ''));
-                const tempFileToRemove = targetTempArray.find(f => f.id === fileIdToRemove);
-                if (!tempFileToRemove) return;
-
-                const indexInTemp = targetTempArray.findIndex(f => f.id === fileIdToRemove);
-                if (indexInTemp > -1) targetTempArray.splice(indexInTemp, 1);
-
-                const dataTransfer = new DataTransfer();
-                targetTempArray.forEach(tempFile => dataTransfer.items.add(tempFile.fileObject));
-                if (inputElement) inputElement.files = dataTransfer.files; 
-                
-                renderFilePreviewList(targetTempArray, previewContainer, (id) => { 
-                    updateAddFormFilePreview(inputElement ? inputElement.files : new FileList(), targetTempArray, previewContainer);
-                });
-            });
-        }
-
-        function renderCourses() { 
-            if (!courseListDiv) return; 
-            courseListDiv.innerHTML = ''; 
-            if (coursesData.length === 0) { 
-                courseListDiv.innerHTML = `<p class="text-center text-gray-500 py-8">No courses available yet. ${currentUserRole === 'admin' ? 'Add some using the form above!' : 'Check back later!'}</p>`; return; 
-            } 
-            coursesData.forEach(course => { 
-                const courseCard = document.createElement('div'); 
-                courseCard.className = 'course-card'; 
-                courseCard.setAttribute('data-course-id', course.id); 
-                
-                let coursePdfsHTML = `<div class="file-section"><h4 class="text-blue-700">Course Materials:</h4><div class="file-list">`; 
-                if (course.coursePdfs && course.coursePdfs.length > 0) { 
-                    course.coursePdfs.forEach(pdf => {
-                        if (pdf.url) { 
-                            coursePdfsHTML += `<a href="${pdf.url}" target="_blank" rel="noopener noreferrer" class="compact-pdf-link-course" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name}</span></a>`; 
-                        } else {
-                            coursePdfsHTML += `<span class="compact-pdf-link-course text-gray-500 italic" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name} (Session-only)</span></span>`;
-                        }
-                    }); 
-                } else { coursePdfsHTML += '<p class="text-xs text-gray-500 italic py-0.5">No course PDF(s).</p>'; } 
-                coursePdfsHTML += '</div></div>'; 
-                
-                let exercisePdfsHTML = `<div class="file-section"><h4 class="text-emerald-700">Exercise Materials:</h4><div class="file-list">`; 
-                if (course.exercisePdfs && course.exercisePdfs.length > 0) { 
-                    course.exercisePdfs.forEach(pdf => {
-                        if (pdf.url) { 
-                            exercisePdfsHTML += `<a href="${pdf.url}" target="_blank" rel="noopener noreferrer" class="compact-pdf-link-exercise" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name}</span></a>`; 
-                        } else {
-                            exercisePdfsHTML += `<span class="compact-pdf-link-exercise text-gray-500 italic" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name} (Session-only)</span></span>`;
-                        }
-                    }); 
-                } else { exercisePdfsHTML += '<p class="text-xs text-gray-500 italic py-0.5">No exercise PDF(s).</p>'; } 
-                exercisePdfsHTML += '</div></div>'; 
-                
-                let actionButtonsHTML = ''; 
-                if (currentUserRole === 'admin') { 
-                    actionButtonsHTML = `<div class="actions"><button data-course-id="${course.id}" class="btn btn-sm btn-warning edit-course-btn">${iconEdit} Edit</button><button data-course-id="${course.id}" class="btn btn-sm btn-danger remove-course-btn">${iconRemove} Remove</button></div>`; 
-                } 
-                courseCard.innerHTML = `
-                    <div><h3>${course.title}</h3></div>
-                    <div class="file-sections-container">${coursePdfsHTML}${exercisePdfsHTML}</div>
-                    ${actionButtonsHTML}`; 
-                courseListDiv.appendChild(courseCard); 
-            }); 
-            if (currentUserRole === 'admin') { 
-                document.querySelectorAll('.remove-course-btn').forEach(b => b.addEventListener('click', (e) => handleRemoveCourse(e.currentTarget.dataset.courseId))); 
-                document.querySelectorAll('.edit-course-btn').forEach(b => b.addEventListener('click', (e) => openEditModal(e.currentTarget.dataset.courseId))); 
-            } 
-        }
-        
-        async function handleAddCourse(event) { 
-            event.preventDefault(); 
-
-            if (!window.db || !window.isAuthReady) {
-                formMessage.textContent = "Database not ready. Please try again.";
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-                return;
-            }
-
-            addCourseSpinner.style.display = 'inline-block'; 
-            addCourseSubmitBtn.disabled = true; 
-            formMessage.textContent = ''; 
-
-            const title = document.getElementById('courseTitle').value.trim(); 
-            if (!title) { 
-                formMessage.textContent = 'Course Title is required.'; 
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5'; 
-                addCourseSpinner.style.display = 'none'; 
-                addCourseSubmitBtn.disabled = false; 
-                return; 
-            } 
-
-            const processFilesForSession = (tempFilesArray) => { 
-                return tempFilesArray.map(tempFile => { 
-                    const objectURL = URL.createObjectURL(tempFile.fileObject); 
-                    objectUrlsToRevoke.push(objectURL); 
-                    return { id: `file_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, name: tempFile.name, url: objectURL, fileObject: tempFile.fileObject }; 
-                }); 
-            }; 
-
-            const coursePdfsForSession = processFilesForSession(tempSelectedCoursePdfs);
-            const exercisePdfsForSession = processFilesForSession(tempSelectedExercisePdfs);
-
-            const coursePdfsForFirestore = coursePdfsForSession.map(pdf => ({ id: pdf.id, name: pdf.name }));
-            const exercisePdfsForFirestore = exercisePdfsForSession.map(pdf => ({ id: pdf.id, name: pdf.name }));
-
-            const newCourseData = { 
-                title: title, 
-                coursePdfs: coursePdfsForFirestore, 
-                exercisePdfs: exercisePdfsForFirestore 
-            }; 
-            
-            try {
-                const appId = "elt-ing"; 
-                const coursesCollectionRef = collection(window.db, `artifacts/${appId}/public/data/courses`);
-                console.log("Attempting to add document to Firestore...");
-                await addDoc(coursesCollectionRef, newCourseData);
-                console.log("Document added successfully to Firestore.");
-
-                addCourseForm.reset(); 
-                tempSelectedCoursePdfs = []; 
-                tempSelectedExercisePdfs = []; 
-                renderFilePreviewList([], coursePdfsAddPreview, ()=>{}); 
-                renderFilePreviewList([], exercisePdfsAddPreview, ()=>{}); 
-                
-                formMessage.textContent = `Course "${title}" added!`; 
-                formMessage.className = 'mt-4 text-sm text-green-600 h-5'; 
-                setTimeout(() => formMessage.textContent = '', 4000); 
-
-            } catch (error) {
-                console.error("Error adding course to Firestore:", error);
-                formMessage.textContent = `Error adding course: ${error.message}`;
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-            } finally {
-                addCourseSpinner.style.display = 'none'; 
-                addCourseSubmitBtn.disabled = false; 
-            }
-        }
-
-        async function handleRemoveCourse(courseId) { 
-            if (!window.db || !window.isAuthReady) {
-                formMessage.textContent = "Database not ready. Please try again.";
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-                return;
-            }
-            
-            const course = coursesData.find(c => c.id === courseId);
-            if (!course) return;
-
-            const confirmDelete = confirm(`Are you sure you want to remove "${course.title}"?`); 
-            if (!confirmDelete) return;
-
-            try {
-                const appId = "elt-ing"; 
-                const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
-                console.log("Attempting to delete document from Firestore...");
-                await deleteDoc(courseDocRef);
-                console.log("Document deleted successfully from Firestore.");
-
-                const revokeFileUrls = (pdfArray) => pdfArray.forEach(pdf => { 
-                    if (pdf.url) { 
-                        URL.revokeObjectURL(pdf.url); 
-                        objectUrlsToRevoke = objectUrlsToRevoke.filter(u => u !== pdf.url); 
-                    }
-                }); 
-                if(course.coursePdfs) revokeFileUrls(course.coursePdfs); 
-                if(course.exercisePdfs) revokeFileUrls(course.exercisePdfs); 
-                
-                formMessage.textContent = `Course "${course.title}" removed.`; 
-                formMessage.className = 'mt-4 text-sm text-blue-600 h-5'; 
-                setTimeout(() => formMessage.textContent = '', 3000); 
-
-            } catch (error) {
-                console.error("Error removing course from Firestore:", error);
-                formMessage.textContent = `Error removing course: ${error.message}`;
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-            }
-        }
-
-        let filesForEditModal = { coursePdfs: [], exercisePdfs: [] };
-
-        function openEditModal(courseId) { 
-            const course = coursesData.find(c => c.id === courseId); 
-            if (!course) return; 
-
-            editCourseIdInput.value = course.id; 
-            editCourseTitleInput.value = course.title; 
-            
-            filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; 
-            
-            addMoreCoursePdfsInput.value = ''; 
-            addMoreExercisePdfsInput.value = ''; 
-            renderFilePreviewList([], addMoreCoursePdfsPreview, () => {}); 
-            renderFilePreviewList([], addMoreExercisePdfsPreview, () => {}); 
-            
-            renderCurrentFilesForEdit(course.coursePdfs, currentCoursePdfsList, 'coursePdfs', course.id); 
-            renderCurrentFilesForEdit(course.exercisePdfs, currentExercisePdfsList, 'exercisePdfs', course.id); 
-            
-            editCourseModal.style.display = 'flex'; 
-        }
-        
-        function renderCurrentFilesForEdit(pdfArray, container, fileType, courseId) {
-            container.innerHTML = '';
-            if (!pdfArray || pdfArray.length === 0) {
-                container.innerHTML = '<p class="text-xs text-gray-400 p-1 italic">No files currently.</p>'; 
-                return;
-            }
-            pdfArray.forEach(pdf => {
-                const item = document.createElement('div');
-                item.className = 'file-preview-item'; 
-                item.innerHTML = `<span class="file-name-preview">${pdf.name}</span>
-                                  <button type="button" class="btn-icon text-red-500 hover:text-red-600 remove-existing-file-btn" data-file-id="${pdf.id}" data-file-type="${fileType}" data-course-id="${courseId}">${iconSmallRemove}</button>`;
-                container.appendChild(item);
-            });
-            container.querySelectorAll('.remove-existing-file-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const { fileId, fileType, courseId: cId } = e.currentTarget.dataset; 
-                    removeExistingFileFromCourse(cId, fileType, fileId);
-                    const currentCourse = coursesData.find(c => c.id === cId);
-                    if(currentCourse) {
-                        if(fileType === 'coursePdfs') renderCurrentFilesForEdit(currentCourse.coursePdfs, currentCoursePdfsList, 'coursePdfs', cId);
-                        else renderCurrentFilesForEdit(currentCourse.exercisePdfs, currentExercisePdfsList, 'exercisePdfs', cId);
-                    }
-                });
-            });
-        }
-        
-        async function removeExistingFileFromCourse(courseId, fileType, fileIdToRemove) { 
-            if (!window.db || !window.isAuthReady) {
-                formMessage.textContent = "Database not ready. Please try again.";
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-                return;
-            }
-
-            const course = coursesData.find(c => c.id === courseId); 
-            if (!course) return; 
-
-            const fileList = course[fileType]; 
-            const fileIndex = fileList.findIndex(f => f.id === fileIdToRemove); 
-            
-            if (fileIndex > -1) { 
-                const removedFile = fileList.splice(fileIndex, 1)[0]; 
-                if (removedFile.url) { 
-                    URL.revokeObjectURL(removedFile.url); 
-                    objectUrlsToRevoke = objectUrlsToRevoke.filter(u => u !== removedFile.url); 
-                }
-
-                try {
-                    const appId = "elt-ing"; 
-                    const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
-                    const updatedCourseData = {
-                        title: course.title,
-                        coursePdfs: course.coursePdfs.map(pdf => ({ id: pdf.id, name: pdf.name })),
-                        exercisePdfs: course.exercisePdfs.map(pdf => ({ id: pdf.id, name: pdf.name }))
-                    };
-                    console.log("Attempting to update document in Firestore (remove file)...");
-                    await updateDoc(courseDocRef, updatedCourseData);
-                    console.log("Document updated successfully in Firestore (file removed).");
-                } catch (error) {
-                    console.error("Error removing file from course in Firestore:", error);
-                    formMessage.textContent = `Error removing file: ${error.message}`;
-                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-                }
-            } 
-        }
-        
-        function updateEditModalFilePreview(fileListInput, targetTempArray, previewContainer) { 
-            targetTempArray.length = 0; 
-            for (let i = 0; i < fileListInput.files.length; i++) { 
-                targetTempArray.push({ id: `temp_edit_${Date.now()}_${i}`, name: fileListInput.files[i].name, fileObject: fileListInput.files[i] }); 
-            } 
-            renderFilePreviewList(targetTempArray, previewContainer, (fileId) => { 
-                const indexToRemove = targetTempArray.findIndex(f => f.id === fileId); 
-                if (indexToRemove > -1) targetTempArray.splice(indexToRemove, 1); 
-                
-                const dataTransfer = new DataTransfer();
-                targetTempArray.forEach(tempFile => dataTransfer.items.add(tempFile.fileObject));
-                if (fileListInput) fileListInput.files = dataTransfer.files;
-
-                renderFilePreviewList(targetTempArray, previewContainer, ()=>{ }); 
-            }); 
-        }
-
-        async function handleSaveEdit(event) { 
-            event.preventDefault(); 
-
-            if (!window.db || !window.isAuthReady) {
-                formMessage.textContent = "Database not ready. Please try again.";
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-                return;
-            }
-
-            const courseId = editCourseIdInput.value; 
-            const course = coursesData.find(c => c.id === courseId); 
-            if (!course) return; 
-
-            const newTitle = editCourseTitleInput.value.trim(); 
-            if (!newTitle) { 
-                formMessage.textContent = "Course Title cannot be empty."; 
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-                return; 
-            } 
-            
-            const processNewFiles = (tempFilesArray) => { 
-                return tempFilesArray.map(tempFile => { 
-                    const objectURL = URL.createObjectURL(tempFile.fileObject); 
-                    objectUrlsToRevoke.push(objectURL); 
-                    return { id: `file_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, name: tempFile.name, url: objectURL, fileObject: tempFile.fileObject }; 
-                }); 
-            }; 
-            
-            const newlyAddedCoursePdfs = processNewFiles(filesForEditModal.coursePdfs); 
-            const newlyAddedExercisePdfs = processNewFiles(filesForEditModal.exercisePdfs); 
-            
-            course.title = newTitle; 
-            course.coursePdfs.push(...newlyAddedCoursePdfs); 
-            course.exercisePdfs.push(...newlyAddedExercisePdfs); 
-
-            const updatedCourseDataForFirestore = {
-                title: newTitle,
-                coursePdfs: course.coursePdfs.map(pdf => ({ id: pdf.id, name: pdf.name })),
-                exercisePdfs: course.exercisePdfs.map(pdf => ({ id: pdf.id, name: pdf.name }))
-            };
-
-            try {
-                const appId = "elt-ing"; 
-                const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
-                console.log("Attempting to update document in Firestore (save edit)...");
-                await updateDoc(courseDocRef, updatedCourseDataForFirestore);
-                console.log("Document updated successfully in Firestore (save edit).");
-                
-                closeEditModal(); 
-                formMessage.textContent = `Course "${newTitle}" updated.`; 
-                formMessage.className = 'mt-4 text-sm text-green-600 h-5'; 
-                setTimeout(() => formMessage.textContent = '', 3000); 
-
-            } catch (error) {
-                console.error("Error updating course in Firestore:", error);
-                formMessage.textContent = `Error updating course: ${error.message}`;
-                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
-            }
-        }
-
-        function closeEditModal() { 
-            editCourseModal.style.display = 'none'; 
-            editCourseForm.reset(); 
-        }
-
-        function setCurrentYear() { 
-            const year = new Date().getFullYear(); 
-            document.getElementById('current-year-login').textContent = year; 
-            document.getElementById('current-year-app').textContent = year; 
-        }
-        
-        // --- Event Listeners (now within module scope) ---
-        document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Firebase and set up auth listener
+        document.addEventListener('DOMContentLoaded', async () => {
             // Initialize DOM element references after DOM is loaded
             loginView = document.getElementById('login-view');
             appView = document.getElementById('app-view');
@@ -495,11 +74,481 @@
             addMoreExercisePdfsPreview = document.getElementById('addMoreExercisePdfsPreview');
 
 
-            setCurrentYear();
-            const storedRole = sessionStorage.getItem('userRole');
-            if (storedRole) { currentUserRole = storedRole; switchView('app'); /* updateUserUI() is called after Firebase auth is ready */ } 
-            else { switchView('login'); }
+            try {
+                // YOUR ACTUAL FIREBASE CONFIGURATION (provided by user)
+                const firebaseConfig = {
+                  apiKey: "AIzaSyBMtCujwXGe6SEnNlYd7NzcZBRxGzeSdAw",
+                  authDomain: "elt-ing.firebaseapp.com",
+                  projectId: "elt-ing",
+                  storageBucket: "elt-ing.firebasestorage.app",
+                  messagingSenderId: "298857320023",
+                  appId: "1:298857320023:web:2181d18b0f0e83752fdd12",
+                  measurementId: "G-H1KZMJ92Z7"
+                };
+                // END OF FIREBASE CONFIGURATION
 
+                const appId = "elt-ing"; 
+
+                console.log("Firebase: Initializing app...");
+                window.firebaseApp = initializeApp(firebaseConfig);
+                console.log("Firebase: App initialized.");
+                window.db = getFirestore(window.firebaseApp);
+                console.log("Firebase: Firestore initialized.");
+                window.auth = getAuth(window.firebaseApp);
+                console.log("Firebase: Auth initialized.");
+                const analytics = getAnalytics(window.firebaseApp); 
+                console.log("Firebase: Analytics initialized.");
+
+                console.log("Firebase Auth: Attempting anonymous sign-in...");
+                await signInAnonymously(window.auth);
+                console.log("Firebase Auth: Anonymous sign-in successful.");
+
+                onAuthStateChanged(window.auth, (user) => {
+                    if (user) {
+                        window.userId = user.uid;
+                        console.log("Firebase Auth: User ID:", window.userId);
+                    } else {
+                        window.userId = null;
+                        console.log("Firebase Auth: No user signed in (anonymous or logged out).");
+                    }
+                    window.isAuthReady = true;
+                    console.log("Firebase Auth: isAuthReady set to true. Setting up Firestore listener and updating UI.");
+                    setupFirestoreListener(appId); 
+                    updateUserUI(); 
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase or signing in:", error);
+                formMessage.textContent = `Error initializing app: ${error.message}. Check console for details.`;
+                formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                window.isAuthReady = true; // Still allow app to render, but without DB access
+                updateUserUI(); 
+            }
+
+            // --- Core Functions (now defined within DOMContentLoaded scope) ---
+            function switchView(viewToShow) { 
+                loginView.classList.remove('active'); 
+                appView.classList.remove('active'); 
+                if (viewToShow === 'login') loginView.classList.add('active'); 
+                else if (viewToShow === 'app') appView.classList.add('active'); 
+            }
+
+            function updateUserUI() { 
+                if (currentUserRole === 'admin') { 
+                    adminContent.style.display = 'block'; 
+                    userRoleDisplay.textContent = 'Admin Mode'; 
+                    userRoleDisplay.classList.remove('bg-emerald-700'); 
+                    userRoleDisplay.classList.add('bg-blue-700'); 
+                } else if (currentUserRole === 'student') { 
+                    adminContent.style.display = 'none'; 
+                    userRoleDisplay.textContent = 'Student Mode'; 
+                    userRoleDisplay.classList.remove('bg-blue-700'); 
+                    userRoleDisplay.classList.add('bg-emerald-700'); 
+                } 
+                renderCourses(); 
+            }
+
+            function handleLogin(role, username, password) { 
+                loginError.textContent = ''; 
+                if (role === 'admin') { 
+                    if (username === 'admin' && password === 'admin') { 
+                        currentUserRole = 'admin'; 
+                        sessionStorage.setItem('userRole', 'admin'); 
+                        switchView('app'); 
+                        updateUserUI(); 
+                    } else { 
+                        loginError.textContent = 'Invalid admin credentials.'; 
+                    } 
+                } else if (role === 'student') { 
+                    currentUserRole = 'student'; 
+                    sessionStorage.setItem('userRole', 'student'); 
+                    switchView('app'); 
+                    updateUserUI(); 
+                } 
+            }
+
+            function handleLogout() { 
+                currentUserRole = null; 
+                sessionStorage.removeItem('userRole'); 
+                switchView('login'); 
+            }
+            
+            function renderFilePreviewList(filesArray, previewContainer, onRemoveCallback) {
+                previewContainer.innerHTML = '';
+                if (filesArray.length === 0) {
+                    previewContainer.innerHTML = '<p class="text-xs text-gray-400 p-1 italic">No files selected/available.</p>';
+                    return;
+                }
+                filesArray.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'file-preview-item';
+                    item.innerHTML = `<span class="file-name-preview">${file.name}</span>
+                                      <button type="button" class="btn-icon text-red-500 hover:text-red-600 remove-preview-btn" data-file-id="${file.id}">${iconSmallRemove}</button>`;
+                    item.querySelector('button.remove-preview-btn').addEventListener('click', () => onRemoveCallback(file.id));
+                    previewContainer.appendChild(item);
+                });
+            }
+            
+            function updateAddFormFilePreview(fileListFromInput, targetTempArray, previewContainer) {
+                targetTempArray.length = 0; 
+                for (let i = 0; i < fileListFromInput.length; i++) {
+                    targetTempArray.push({ id: `temp_${Date.now()}_${i}`, name: fileListFromInput[i].name, fileObject: fileListFromInput[i] });
+                }
+                renderFilePreviewList(targetTempArray, previewContainer, (fileIdToRemove) => {
+                    const inputElement = document.getElementById(previewContainer.id.replace('Preview', ''));
+                    const tempFileToRemove = targetTempArray.find(f => f.id === fileIdToRemove);
+                    if (!tempFileToRemove) return;
+
+                    const indexInTemp = targetTempArray.findIndex(f => f.id === fileIdToRemove);
+                    if (indexInTemp > -1) targetTempArray.splice(indexInTemp, 1);
+
+                    const dataTransfer = new DataTransfer();
+                    targetTempArray.forEach(tempFile => dataTransfer.items.add(tempFile.fileObject));
+                    if (inputElement) inputElement.files = dataTransfer.files; 
+                    
+                    renderFilePreviewList(targetTempArray, previewContainer, (id) => { 
+                        updateAddFormFilePreview(inputElement ? inputElement.files : new FileList(), targetTempArray, previewContainer);
+                    });
+                });
+            }
+
+            function renderCourses() { 
+                if (!courseListDiv) return; 
+                courseListDiv.innerHTML = ''; 
+                if (coursesData.length === 0) { 
+                    courseListDiv.innerHTML = `<p class="text-center text-gray-500 py-8">No courses available yet. ${currentUserRole === 'admin' ? 'Add some using the form above!' : 'Check back later!'}</p>`; return; 
+                } 
+                coursesData.forEach(course => { 
+                    const courseCard = document.createElement('div'); 
+                    courseCard.className = 'course-card'; 
+                    courseCard.setAttribute('data-course-id', course.id); 
+                    
+                    let coursePdfsHTML = `<div class="file-section"><h4 class="text-blue-700">Course Materials:</h4><div class="file-list">`; 
+                    if (course.coursePdfs && course.coursePdfs.length > 0) { 
+                        course.coursePdfs.forEach(pdf => {
+                            if (pdf.url) { 
+                                coursePdfsHTML += `<a href="${pdf.url}" target="_blank" rel="noopener noreferrer" class="compact-pdf-link-course" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name}</span></a>`; 
+                            } else {
+                                coursePdfsHTML += `<span class="compact-pdf-link-course text-gray-500 italic" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name} (Session-only)</span></span>`;
+                            }
+                        }); 
+                    } else { coursePdfsHTML += '<p class="text-xs text-gray-500 italic py-0.5">No course PDF(s).</p>'; } 
+                    coursePdfsHTML += '</div></div>'; 
+                    
+                    let exercisePdfsHTML = `<div class="file-section"><h4 class="text-emerald-700">Exercise Materials:</h4><div class="file-list">`; 
+                    if (course.exercisePdfs && course.exercisePdfs.length > 0) { 
+                        course.exercisePdfs.forEach(pdf => {
+                            if (pdf.url) { 
+                                exercisePdfsHTML += `<a href="${pdf.url}" target="_blank" rel="noopener noreferrer" class="compact-pdf-link-exercise" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name}</span></a>`; 
+                            } else {
+                                exercisePdfsHTML += `<span class="compact-pdf-link-exercise text-gray-500 italic" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name} (Session-only)</span></span>`;
+                            }
+                        }); 
+                    } else { exercisePdfsHTML += '<p class="text-xs text-gray-500 italic py-0.5">No exercise PDF(s).</p>'; } 
+                    exercisePdfsHTML += '</div></div>'; 
+                    
+                    let actionButtonsHTML = ''; 
+                    if (currentUserRole === 'admin') { 
+                        actionButtonsHTML = `<div class="actions"><button data-course-id="${course.id}" class="btn btn-sm btn-warning edit-course-btn">${iconEdit} Edit</button><button data-course-id="${course.id}" class="btn btn-sm btn-danger remove-course-btn">${iconRemove} Remove</button></div>`; 
+                    } 
+                    courseCard.innerHTML = `
+                        <div><h3>${course.title}</h3></div>
+                        <div class="file-sections-container">${coursePdfsHTML}${exercisePdfsHTML}</div>
+                        ${actionButtonsHTML}`; 
+                    courseListDiv.appendChild(courseCard); 
+                }); 
+                if (currentUserRole === 'admin') { 
+                    document.querySelectorAll('.remove-course-btn').forEach(b => b.addEventListener('click', (e) => handleRemoveCourse(e.currentTarget.dataset.courseId))); 
+                    document.querySelectorAll('.edit-course-btn').forEach(b => b.addEventListener('click', (e) => openEditModal(e.currentTarget.dataset.courseId))); 
+                } 
+            }
+            
+            async function handleAddCourse(event) { 
+                event.preventDefault(); 
+
+                if (!window.db || !window.isAuthReady) {
+                    formMessage.textContent = "Database not ready. Please try again.";
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                    return;
+                }
+
+                addCourseSpinner.style.display = 'inline-block'; 
+                addCourseSubmitBtn.disabled = true; 
+                formMessage.textContent = ''; 
+
+                const title = document.getElementById('courseTitle').value.trim(); 
+                if (!title) { 
+                    formMessage.textContent = 'Course Title is required.'; 
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5'; 
+                    addCourseSpinner.style.display = 'none'; 
+                    addCourseSubmitBtn.disabled = false; 
+                    return; 
+                } 
+
+                const processFilesForSession = (tempFilesArray) => { 
+                    return tempFilesArray.map(tempFile => { 
+                        const objectURL = URL.createObjectURL(tempFile.fileObject); 
+                        objectUrlsToRevoke.push(objectURL); 
+                        return { id: `file_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, name: tempFile.name, url: objectURL, fileObject: tempFile.fileObject }; 
+                    }); 
+                }; 
+
+                const coursePdfsForSession = processFilesForSession(tempSelectedCoursePdfs);
+                const exercisePdfsForSession = processFilesForSession(tempSelectedExercisePdfs);
+
+                const coursePdfsForFirestore = coursePdfsForSession.map(pdf => ({ id: pdf.id, name: pdf.name }));
+                const exercisePdfsForFirestore = exercisePdfsForSession.map(pdf => ({ id: pdf.id, name: pdf.name }));
+
+                const newCourseData = { 
+                    title: title, 
+                    coursePdfs: coursePdfsForFirestore, 
+                    exercisePdfs: exercisePdfsForFirestore 
+                }; 
+                
+                try {
+                    const appId = "elt-ing"; 
+                    const coursesCollectionRef = collection(window.db, `artifacts/${appId}/public/data/courses`);
+                    console.log("Attempting to add document to Firestore...");
+                    await addDoc(coursesCollectionRef, newCourseData);
+                    console.log("Document added successfully to Firestore.");
+
+                    addCourseForm.reset(); 
+                    tempSelectedCoursePdfs = []; 
+                    tempSelectedExercisePdfs = []; 
+                    renderFilePreviewList([], coursePdfsAddPreview, ()=>{}); 
+                    renderFilePreviewList([], exercisePdfsAddPreview, ()=>{}); 
+                    
+                    formMessage.textContent = `Course "${title}" added!`; 
+                    formMessage.className = 'mt-4 text-sm text-green-600 h-5'; 
+                    setTimeout(() => formMessage.textContent = '', 4000); 
+
+                } catch (error) {
+                    console.error("Error adding course to Firestore:", error);
+                    formMessage.textContent = `Error adding course: ${error.message}`;
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                } finally {
+                    addCourseSpinner.style.display = 'none'; 
+                    addCourseSubmitBtn.disabled = false; 
+                }
+            }
+
+            async function handleRemoveCourse(courseId) { 
+                if (!window.db || !window.isAuthReady) {
+                    formMessage.textContent = "Database not ready. Please try again.";
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                    return;
+                }
+                
+                const course = coursesData.find(c => c.id === courseId);
+                if (!course) return;
+
+                const confirmDelete = confirm(`Are you sure you want to remove "${course.title}"?`); 
+                if (!confirmDelete) return;
+
+                try {
+                    const appId = "elt-ing"; 
+                    const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
+                    console.log("Attempting to delete document from Firestore...");
+                    await deleteDoc(courseDocRef);
+                    console.log("Document deleted successfully from Firestore.");
+
+                    const revokeFileUrls = (pdfArray) => pdfArray.forEach(pdf => { 
+                        if (pdf.url) { 
+                            URL.revokeObjectURL(pdf.url); 
+                            objectUrlsToRevoke = objectUrlsToRevoke.filter(u => u !== pdf.url); 
+                        }
+                    }); 
+                    if(course.coursePdfs) revokeFileUrls(course.coursePdfs); 
+                    if(course.exercisePdfs) revokeFileUrls(course.exercisePdfs); 
+                    
+                    formMessage.textContent = `Course "${course.title}" removed.`; 
+                    formMessage.className = 'mt-4 text-sm text-blue-600 h-5'; 
+                    setTimeout(() => formMessage.textContent = '', 3000); 
+
+                } catch (error) {
+                    console.error("Error removing course from Firestore:", error);
+                    formMessage.textContent = `Error removing course: ${error.message}`;
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                }
+            }
+
+            let filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; // Re-declared here, but should be global or passed
+
+            function openEditModal(courseId) { 
+                const course = coursesData.find(c => c.id === courseId); 
+                if (!course) return; 
+
+                editCourseIdInput.value = course.id; 
+                editCourseTitleInput.value = course.title; 
+                
+                filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; 
+                
+                addMoreCoursePdfsInput.value = ''; 
+                addMoreExercisePdfsInput.value = ''; 
+                renderFilePreviewList([], addMoreCoursePdfsPreview, () => {}); 
+                renderFilePreviewList([], addMoreExercisePdfsPreview, () => {}); 
+                
+                renderCurrentFilesForEdit(course.coursePdfs, currentCoursePdfsList, 'coursePdfs', course.id); 
+                renderCurrentFilesForEdit(course.exercisePdfs, currentExercisePdfsList, 'exercisePdfs', course.id); 
+                
+                editCourseModal.style.display = 'flex'; 
+            }
+            
+            function renderCurrentFilesForEdit(pdfArray, container, fileType, courseId) {
+                container.innerHTML = '';
+                if (!pdfArray || pdfArray.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-400 p-1 italic">No files currently.</p>'; 
+                    return;
+                }
+                pdfArray.forEach(pdf => {
+                    const item = document.createElement('div');
+                    item.className = 'file-preview-item'; 
+                    item.innerHTML = `<span class="file-name-preview">${pdf.name}</span>
+                                      <button type="button" class="btn-icon text-red-500 hover:text-red-600 remove-existing-file-btn" data-file-id="${pdf.id}" data-file-type="${fileType}" data-course-id="${courseId}">${iconSmallRemove}</button>`;
+                    container.appendChild(item);
+                });
+                container.querySelectorAll('.remove-existing-file-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const { fileId, fileType, courseId: cId } = e.currentTarget.dataset; 
+                        removeExistingFileFromCourse(cId, fileType, fileId);
+                        const currentCourse = coursesData.find(c => c.id === cId);
+                        if(currentCourse) {
+                            if(fileType === 'coursePdfs') renderCurrentFilesForEdit(currentCourse.coursePdfs, currentCoursePdfsList, 'coursePdfs', cId);
+                            else renderCurrentFilesForEdit(currentCourse.exercisePdfs, currentExercisePdfsList, 'exercisePdfs', cId);
+                        }
+                    });
+                });
+            }
+            
+            async function removeExistingFileFromCourse(courseId, fileType, fileIdToRemove) { 
+                if (!window.db || !window.isAuthReady) {
+                    formMessage.textContent = "Database not ready. Please try again.";
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                    return;
+                }
+
+                const course = coursesData.find(c => c.id === courseId); 
+                if (!course) return; 
+
+                const fileList = course[fileType]; 
+                const fileIndex = fileList.findIndex(f => f.id === fileIdToRemove); 
+                
+                if (fileIndex > -1) { 
+                    const removedFile = fileList.splice(fileIndex, 1)[0]; 
+                    if (removedFile.url) { 
+                        URL.revokeObjectURL(removedFile.url); 
+                        objectUrlsToRevoke = objectUrlsToRevoke.filter(u => u !== removedFile.url); 
+                    }
+
+                    try {
+                        const appId = "elt-ing"; 
+                        const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
+                        const updatedCourseData = {
+                            title: course.title,
+                            coursePdfs: course.coursePdfs.map(pdf => ({ id: pdf.id, name: pdf.name })),
+                            exercisePdfs: course.exercisePdfs.map(pdf => ({ id: pdf.id, name: pdf.name }))
+                        };
+                        console.log("Attempting to update document in Firestore (remove file)...");
+                        await updateDoc(courseDocRef, updatedCourseData);
+                        console.log("Document updated successfully in Firestore (file removed).");
+                    } catch (error) {
+                        console.error("Error removing file from course in Firestore:", error);
+                        formMessage.textContent = `Error removing file: ${error.message}`;
+                        formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                    }
+                } 
+            }
+            
+            function updateEditModalFilePreview(fileListInput, targetTempArray, previewContainer) { 
+                targetTempArray.length = 0; 
+                for (let i = 0; i < fileListInput.files.length; i++) { 
+                    targetTempArray.push({ id: `temp_edit_${Date.now()}_${i}`, name: fileListInput.files[i].name, fileObject: fileListInput.files[i] }); 
+                } 
+                renderFilePreviewList(targetTempArray, previewContainer, (fileId) => { 
+                    const indexToRemove = targetTempArray.findIndex(f => f.id === fileId); 
+                    if (indexToRemove > -1) targetTempArray.splice(indexToRemove, 1); 
+                    
+                    const dataTransfer = new DataTransfer();
+                    targetTempArray.forEach(tempFile => dataTransfer.items.add(tempFile.fileObject));
+                    if (fileListInput) fileListInput.files = dataTransfer.files;
+
+                    renderFilePreviewList(targetTempArray, previewContainer, ()=>{ }); 
+                }); 
+            }
+
+            async function handleSaveEdit(event) { 
+                event.preventDefault(); 
+
+                if (!window.db || !window.isAuthReady) {
+                    formMessage.textContent = "Database not ready. Please try again.";
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                    return;
+                }
+
+                const courseId = editCourseIdInput.value; 
+                const course = coursesData.find(c => c.id === courseId); 
+                if (!course) return; 
+
+                const newTitle = editCourseTitleInput.value.trim(); 
+                if (!newTitle) { 
+                    formMessage.textContent = "Course Title cannot be empty."; 
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                    return; 
+                } 
+                
+                const processNewFiles = (tempFilesArray) => { 
+                    return tempFilesArray.map(tempFile => { 
+                        const objectURL = URL.createObjectURL(tempFile.fileObject); 
+                        objectUrlsToRevoke.push(objectURL); 
+                        return { id: `file_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, name: tempFile.name, url: objectURL, fileObject: tempFile.fileObject }; 
+                    }); 
+                }; 
+                
+                const newlyAddedCoursePdfs = processNewFiles(filesForEditModal.coursePdfs); 
+                const newlyAddedExercisePdfs = processNewFiles(filesForEditModal.exercisePdfs); 
+                
+                course.title = newTitle; 
+                course.coursePdfs.push(...newlyAddedCoursePdfs); 
+                course.exercisePdfs.push(...newlyAddedExercisePdfs); 
+
+                const updatedCourseDataForFirestore = {
+                    title: newTitle,
+                    coursePdfs: course.coursePdfs.map(pdf => ({ id: pdf.id, name: pdf.name })),
+                    exercisePdfs: course.exercisePdfs.map(pdf => ({ id: pdf.id, name: pdf.name }))
+                };
+
+                try {
+                    const appId = "elt-ing"; 
+                    const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
+                    console.log("Attempting to update document in Firestore (save edit)...");
+                    await updateDoc(courseDocRef, updatedCourseDataForFirestore);
+                    console.log("Document updated successfully in Firestore (save edit).");
+                    
+                    closeEditModal(); 
+                    formMessage.textContent = `Course "${newTitle}" updated.`; 
+                    formMessage.className = 'mt-4 text-sm text-green-600 h-5'; 
+                    setTimeout(() => formMessage.textContent = '', 3000); 
+
+                } catch (error) {
+                    console.error("Error updating course in Firestore:", error);
+                    formMessage.textContent = `Error updating course: ${error.message}`;
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                }
+            }
+
+            function closeEditModal() { 
+                editCourseModal.style.display = 'none'; 
+                editCourseForm.reset(); 
+            }
+
+            function setCurrentYear() { 
+                const year = new Date().getFullYear(); 
+                document.getElementById('current-year-login').textContent = year; 
+                document.getElementById('current-year-app').textContent = year; 
+            }
+            
+            // --- Event Listeners ---
+            // These event listeners are now defined within the DOMContentLoaded scope
             document.getElementById('coursePdfsAdd').addEventListener('change', (e) => updateAddFormFilePreview(e.target.files, tempSelectedCoursePdfs, coursePdfsAddPreview));
             document.getElementById('exercisePdfsAdd').addEventListener('change', (e) => updateAddFormFilePreview(e.target.files, tempSelectedExercisePdfs, exercisePdfsAddPreview));
             
