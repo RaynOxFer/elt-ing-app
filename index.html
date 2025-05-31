@@ -23,6 +23,8 @@
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // YOUR ACTUAL FIREBASE CONFIGURATION (provided by user)
+                // IMPORTANT: Replace all placeholder values with your Firebase project's actual configuration.
+                // You can find this in your Firebase project settings -> Project settings -> Your apps -> Web app.
                 const firebaseConfig = {
                   apiKey: "AIzaSyBMtCujwXGe6SEnNlYd7NzcZBRxGzeSdAw",
                   authDomain: "elt-ing.firebaseapp.com",
@@ -34,8 +36,13 @@
                 };
                 // END OF FIREBASE CONFIGURATION
 
-                // Using the projectId as the appId for collection paths
+                // IMPORTANT: Use the same value as 'projectId' from your firebaseConfig above.
                 const appId = "elt-ing"; 
+
+                // Removed the explicit check that caused the console error.
+                // Firebase initialization will now proceed even with placeholders,
+                // but will only connect to your project if the config is valid.
+                // You MUST replace the placeholders for data persistence to work.
 
                 window.firebaseApp = initializeApp(firebaseConfig);
                 window.db = getFirestore(window.firebaseApp);
