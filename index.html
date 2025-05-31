@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELT ING - Share Courses & Exercises</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* New Color Palette:
+           Primary Blue: #3B82F6 (blue-500)
+           Darker Blue: #1E40AF (blue-800)
+           Secondary Green: #059669 (emerald-600)
+           Warning Yellow: #F59E0B (amber-500)
+           Danger Red: #DC2626 (red-600)
+           Background: #F8FAFC (gray-50)
+           Text: #374151 (gray-700)
+        */
+        body {
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            background-color: #F8FAFC; /* Light background */
+            color: #374151; /* Dark gray text */
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Custom Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #E0F2F7; border-radius: 10px; } /* Lighter track */
+        ::-webkit-scrollbar-thumb { background: #3B82F6; border-radius: 10px; } /* Primary blue thumb */
+        ::-webkit-scrollbar-thumb:hover { background: #2563EB; } /* Darker blue on hover */
+
+        /* Form Inputs & Labels */
+        .form-input, .form-file-input, .login-input {
+            @apply mt-1 block w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow;
+        }
+        .form-file-input {
+            @apply file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer;
+        }
+        .form-label, .login-label { @apply block text-sm font-medium text-gray-700 mb-1; }
+
+        /* PDF Link Styling (COMPACT for course cards & modal lists) */
+        .compact-pdf-link {
+            @apply flex items-center py-1 text-xs transition-colors duration-150; /* Slightly more padding */
+            max-width: 100%; 
+        }
+        .compact-pdf-link svg.file-icon { @apply mr-2 h-4 w-4 flex-shrink-0; } /* Slightly larger icon */
+        .compact-pdf-link span.file-name { @apply flex-grow truncate hover:underline; }
+        
+        .compact-pdf-link-course { @apply text-blue-600 hover:text-blue-800 compact-pdf-link; }
+        .compact-pdf-link-exercise { @apply text-emerald-600 hover:text-emerald-800 compact-pdf-link; }
+        
+        /* Buttons */
+        .btn {
+            @apply px-6 py-2.5 rounded-lg font-medium text-sm shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 flex items-center justify-center;
+        }
+        .btn-sm { @apply px-3 py-1.5 text-xs; }
+        .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500; }
+        .btn-secondary { @apply bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500; }
+        .btn-danger { @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500; }
+        .btn-warning { @apply bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400; }
+        .btn-outline { @apply bg-transparent border border-blue-600 text-blue-600 hover:bg-blue-50; }
+        .btn-icon { @apply p-1 rounded-md leading-none bg-transparent hover:bg-gray-200; } /* Minimal padding for icons in lists */
+        .btn-icon svg { @apply h-4 w-4; } /* Slightly larger icons for remove buttons */
+
+        /* Views & Modal */
+        .view { display: none; }
+        .view.active { display: block; }
+        .modal-overlay {
+            @apply fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[100] transition-opacity duration-300;
+        }
+        .modal-content {
+            @apply bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto; /* Max-width lg for modal */
+        }
+        .modal-header { @apply flex justify-between items-center pb-3 mb-4 border-b border-gray-200; }
+        .modal-title { @apply text-xl font-semibold text-blue-700; } /* Larger modal title */
+        .modal-body { @apply space-y-5; } /* Increased spacing */
+        .modal-footer { @apply flex justify-end space-x-3 pt-4 mt-4 border-t border-gray-200; }  
+
+        /* Spinner */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3); width: 20px; height: 20px; /* White spinner for dark buttons */
+            border-radius: 50%; border-left-color: #fff; 
+            animation: spin 1s ease infinite; display: inline-block; margin-left: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Course Card */
+        .course-card { 
+            @apply bg-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out flex flex-col border border-gray-100; /* Adjusted padding, added border */
+        } 
+        .course-card h3 { 
+            @apply text-xl sm:text-2xl font-bold text-blue-800 mb-3; /* Larger, bolder title */
+        } 
+        .course-card .actions { 
+            @apply mt-auto pt-4 border-t border-gray-200 flex justify-end space-x-2; /* Adjusted padding */
+        } 
+        
+        /* Updated: File sections container for table-like layout */
+        .course-card .file-sections-container { 
+            @apply flex flex-col sm:flex-row gap-x-5 gap-y-4 mt-3 mb-3 flex-grow; /* Increased gap */
+        } 
+        .course-card .file-section { 
+            @apply flex-1 p-4 bg-blue-50 rounded-lg shadow-inner border border-blue-100; /* New background and border colors */
+            min-width: 0; /* Ensures content can shrink */
+        } 
+        .course-card .file-section h4 { 
+            @apply text-base font-semibold mb-2 text-blue-700 border-b border-blue-200 pb-1.5; /* Adjusted heading, new colors */
+        } 
+        .course-card .file-list { 
+            @apply space-y-1.5 max-h-40 overflow-y-auto; /* Tighter spacing, adjusted max-height */
+        }
+
+
+        /* File Preview List (in Add/Edit form & Edit Modal current files) */
+        .file-preview-list-container { @apply mt-2 space-y-1.5 max-h-36 overflow-y-auto border border-gray-200 rounded-md p-2 bg-gray-50; } /* Compacted */
+        .file-preview-item { 
+            @apply flex justify-between items-center px-2 py-1.5 text-sm bg-white rounded border border-gray-100 shadow-sm; /* Slightly larger text, more padding */
+            max-width: 100%; 
+        }
+        .file-preview-item span.file-name-preview { 
+            @apply truncate mr-2 flex-grow text-gray-700; 
+        }
+        .file-preview-item button.remove-preview-btn { 
+            @apply flex-shrink-0 text-red-500 hover:text-red-600; 
+        }
+
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="login-view" class="view active min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-700 to-blue-500 p-4">
+        <div class="bg-white p-8 sm:p-12 rounded-xl shadow-2xl w-full max-w-md text-center">
+            <h1 class="text-5xl font-extrabold tracking-tight text-blue-700 mb-3">ELT ING</h1>
+            <p class="text-gray-600 mb-8">Share Courses & Exercises</p>
+            <form id="login-form" class="space-y-6">
+                <div><label for="username" class="login-label text-left">Username</label><input type="text" id="username" value="admin" class="login-input"></div>
+                <div><label for="password" class="login-label text-left">Password</label><input type="password" id="password" value="admin" class="login-input"></div>
+                <button type="submit" class="btn btn-primary w-full text-base">Login as Admin</button>
+            </form>
+            <div class="my-6 flex items-center"><hr class="flex-grow border-gray-300"><span class="mx-4 text-gray-500 text-sm">OR</span><hr class="flex-grow border-gray-300"></div>
+            <button id="student-login-btn" class="btn btn-outline w-full text-base">View as Student</button>
+            <p id="login-error" class="text-red-500 text-sm mt-4 h-5"></p>
+        </div>
+        <p class="text-blue-100 text-xs mt-8">&copy; <span id="current-year-login"></span> ELT ING. <span id="data-persistence-note">(Course metadata saved locally; PDF content is session-only)</span></p>
+    </div>
+
+    <div id="app-view" class="view">
+        <header class="bg-blue-800 text-white shadow-2xl sticky top-0 z-50">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <h1 class="text-3xl font-bold tracking-tight">ELT ING</h1>
+                <div class="flex items-center">
+                    <span id="user-role-display" class="mr-4 text-sm bg-blue-700 px-3 py-1 rounded-full"></span>
+                    <button id="logout-btn" class="btn btn-danger btn-sm px-4 py-2">Logout</button>
+                </div>
+            </div>
+        </header>
+        <main class="container mx-auto px-4 sm:px-6 py-10">
+            <section id="admin-content" style="display:none;" class="mb-12">
+                   <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h2 class="text-2xl font-bold text-blue-700 mb-6">Add New Course/Model</h2>
+                    <form id="add-course-form" class="space-y-5"> 
+                        <div>
+                            <label for="courseTitle" class="form-label">Course Title <span class="text-red-500">*</span></label>
+                            <input type="text" id="courseTitle" class="form-input" required>
+                        </div>
+                        <div>
+                            <label for="coursePdfsAdd" class="form-label">Course PDF(s) <span class="text-xs text-gray-500">(Multiple)</span></label>
+                            <input type="file" id="coursePdfsAdd" class="form-file-input" multiple accept=".pdf">
+                            <div id="coursePdfsAddPreview" class="file-preview-list-container"></div>
+                        </div>
+                        <div>
+                            <label for="exercisePdfsAdd" class="form-label">Exercises PDF(s) <span class="text-xs text-gray-500">(Multiple)</span></label>
+                            <input type="file" id="exercisePdfsAdd" class="form-file-input" multiple accept=".pdf">
+                            <div id="exercisePdfsAddPreview" class="file-preview-list-container"></div>
+                        </div>
+                        <div>
+                            <button type="submit" id="add-course-submit-btn" class="btn btn-secondary w-full sm:w-auto">Add Course <span id="add-course-spinner" class="spinner" style="display: none;"></span></button>
+                        </div>
+                    </form>
+                    <div id="form-message" class="mt-4 text-sm h-5"></div>
+                </div>
+            </section>
+            <section id="course-section">
+                <h2 class="text-3xl font-bold text-blue-700 mb-8 text-center sm:text-left">Available Courses & Exercises</h2>
+                <div id="course-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div> 
+            </section>
+        </main>
+        <footer class="bg-blue-900 text-blue-100 text-center py-8 mt-16">
+            <p>&copy; <span id="current-year-app"></span> ELT ING. <span id="data-persistence-note-footer">(Course metadata saved locally; PDF content is session-only)</span></p>
+        </footer>
+    </div>
+
+    <div id="edit-course-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Course</h3>
+                <button id="close-edit-modal-btn" class="btn-icon text-gray-400 hover:text-gray-600 p-1">&times;</button> 
+            </div>
+            <form id="edit-course-form" class="modal-body">
+                <input type="hidden" id="editCourseId">
+                <div>
+                    <label for="editCourseTitle" class="form-label">Course Title <span class="text-red-500">*</span></label>
+                    <input type="text" id="editCourseTitle" class="form-input" required>
+                </div>
+                
+                <div>
+                    <label class="form-label text-sm text-gray-600">Current Course PDF(s)</label> 
+                    <div id="currentCoursePdfsList" class="file-preview-list-container"></div>
+                    <label for="addMoreCoursePdfs" class="form-label mt-2.5">Add More Course PDF(s)</label> 
+                    <input type="file" id="addMoreCoursePdfs" class="form-file-input" multiple accept=".pdf">
+                    <div id="addMoreCoursePdfsPreview" class="file-preview-list-container"></div>
+                </div>
+                <div>
+                    <label class="form-label text-sm text-gray-600">Current Exercises PDF(s)</label> 
+                    <div id="currentExercisePdfsList" class="file-preview-list-container"></div>
+                    <label for="addMoreExercisePdfs" class="form-label mt-2.5">Add More Exercises PDF(s)</label> 
+                    <input type="file" id="addMoreExercisePdfs" class="form-file-input" multiple accept=".pdf">
+                    <div id="addMoreExercisePdfsPreview" class="file-preview-list-container"></div>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button id="cancel-edit-btn" type="button" class="btn btn-outline btn-sm">Cancel</button> 
+                <button id="save-edit-btn" type="submit" form="edit-course-form" class="btn btn-primary btn-sm">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global State & Data ---
+        let coursesData = []; 
+        let objectUrlsToRevoke = [];
+        let currentUserRole = null;
+        let tempSelectedCoursePdfs = []; 
+        let tempSelectedExercisePdfs = [];
+
+        // --- DOM Elements ---
+        const loginView = document.getElementById('login-view'), appView = document.getElementById('app-view');
+        const loginForm = document.getElementById('login-form'), studentLoginBtn = document.getElementById('student-login-btn'), loginError = document.getElementById('login-error');
+        const adminContent = document.getElementById('admin-content'), addCourseForm = document.getElementById('add-course-form');
+        const addCourseSpinner = document.getElementById('add-course-spinner'), addCourseSubmitBtn = document.getElementById('add-course-submit-btn'), formMessage = document.getElementById('form-message');
+        const courseListDiv = document.getElementById('course-list'), userRoleDisplay = document.getElementById('user-role-display'), logoutBtn = document.getElementById('logout-btn');
+        const coursePdfsAddPreview = document.getElementById('coursePdfsAddPreview');
+        const exercisePdfsAddPreview = document.getElementById('exercisePdfsAddPreview');
+        const editCourseModal = document.getElementById('edit-course-modal'), editCourseForm = document.getElementById('edit-course-form');
+        const closeEditModalBtn = document.getElementById('close-edit-modal-btn'), cancelEditBtn = document.getElementById('cancel-edit-btn'), saveEditBtn = document.getElementById('save-edit-btn');
+        const editCourseIdInput = document.getElementById('editCourseId'), editCourseTitleInput = document.getElementById('editCourseTitle');
+        const currentCoursePdfsList = document.getElementById('currentCoursePdfsList'), currentExercisePdfsList = document.getElementById('currentExercisePdfsList');
+        const addMoreCoursePdfsInput = document.getElementById('addMoreCoursePdfs'); // Added for clarity
+        const addMoreExercisePdfsInput = document.getElementById('addMoreExercisePdfs'); // Added for clarity
+        const addMoreCoursePdfsPreview = document.getElementById('addMoreCoursePdfsPreview'), addMoreExercisePdfsPreview = document.getElementById('addMoreExercisePdfsPreview');
+
+
+        // --- Icons ---
+        const iconFilePDF = `<svg class="file-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" /></svg>`;
+        const iconEdit = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>`; // Slightly smaller edit icon
+        const iconRemove = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>`; // Slightly smaller remove icon
+        const iconSmallRemove = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>`;
+
+        // --- Core Functions ---
+        function switchView(viewToShow) { 
+            loginView.classList.remove('active'); 
+            appView.classList.remove('active'); 
+            if (viewToShow === 'login') loginView.classList.add('active'); 
+            else if (viewToShow === 'app') appView.classList.add('active'); 
+        }
+
+        function updateUserUI() { 
+            if (currentUserRole === 'admin') { 
+                adminContent.style.display = 'block'; 
+                userRoleDisplay.textContent = 'Admin Mode'; 
+                userRoleDisplay.classList.remove('bg-emerald-700'); 
+                userRoleDisplay.classList.add('bg-blue-700'); 
+            } else if (currentUserRole === 'student') { 
+                adminContent.style.display = 'none'; 
+                userRoleDisplay.textContent = 'Student Mode'; 
+                userRoleDisplay.classList.remove('bg-blue-700'); 
+                userRoleDisplay.classList.add('bg-emerald-700'); 
+            } 
+            renderCourses(); 
+        }
+
+        function handleLogin(role, username, password) { 
+            loginError.textContent = ''; 
+            if (role === 'admin') { 
+                if (username === 'admin' && password === 'admin') { 
+                    currentUserRole = 'admin'; 
+                    sessionStorage.setItem('userRole', 'admin'); 
+                    switchView('app'); 
+                    updateUserUI(); 
+                } else { 
+                    loginError.textContent = 'Invalid admin credentials.'; 
+                } 
+            } else if (role === 'student') { 
+                currentUserRole = 'student'; 
+                sessionStorage.setItem('userRole', 'student'); 
+                switchView('app'); 
+                updateUserUI(); 
+            } 
+        }
+
+        function handleLogout() { 
+            currentUserRole = null; 
+            sessionStorage.removeItem('userRole'); 
+            switchView('login'); 
+        }
+        
+        // Renders a list of file previews with remove buttons
+        function renderFilePreviewList(filesArray, previewContainer, onRemoveCallback) {
+            previewContainer.innerHTML = '';
+            if (filesArray.length === 0) {
+                previewContainer.innerHTML = '<p class="text-xs text-gray-400 p-1 italic">No files selected/available.</p>';
+                return;
+            }
+            filesArray.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'file-preview-item';
+                item.innerHTML = `<span class="file-name-preview">${file.name}</span>
+                                  <button type="button" class="btn-icon text-red-500 hover:text-red-600 remove-preview-btn" data-file-id="${file.id}">${iconSmallRemove}</button>`;
+                item.querySelector('button.remove-preview-btn').addEventListener('click', () => onRemoveCallback(file.id));
+                previewContainer.appendChild(item);
+            });
+        }
+        
+        // Updates the file preview list for the add course form
+        function updateAddFormFilePreview(fileListFromInput, targetTempArray, previewContainer) {
+            targetTempArray.length = 0; 
+            for (let i = 0; i < fileListFromInput.length; i++) {
+                targetTempArray.push({ id: `temp_${Date.now()}_${i}`, name: fileListFromInput[i].name, fileObject: fileListFromInput[i] });
+            }
+            renderFilePreviewList(targetTempArray, previewContainer, (fileIdToRemove) => {
+                const inputElement = document.getElementById(previewContainer.id.replace('Preview', ''));
+                const tempFileToRemove = targetTempArray.find(f => f.id === fileIdToRemove);
+                if (!tempFileToRemove) return;
+
+                // Update the temporary array first
+                const indexInTemp = targetTempArray.findIndex(f => f.id === fileIdToRemove);
+                if (indexInTemp > -1) targetTempArray.splice(indexInTemp, 1);
+
+                // Rebuild the input.files based on the updated targetTempArray
+                const dataTransfer = new DataTransfer();
+                targetTempArray.forEach(tempFile => dataTransfer.items.add(tempFile.fileObject));
+                if (inputElement) inputElement.files = dataTransfer.files; 
+                
+                // Re-render the preview list for the updated temporary array
+                renderFilePreviewList(targetTempArray, previewContainer, (id) => { 
+                    updateAddFormFilePreview(inputElement ? inputElement.files : new FileList(), targetTempArray, previewContainer);
+                });
+            });
+        }
+
+        // Renders all course cards
+        function renderCourses() { 
+            if (!courseListDiv) return; 
+            courseListDiv.innerHTML = ''; 
+            if (coursesData.length === 0) { 
+                courseListDiv.innerHTML = `<p class="text-center text-gray-500 py-8">No courses available yet. ${currentUserRole === 'admin' ? 'Add some using the form above!' : 'Check back later!'}</p>`; return; 
+            } 
+            coursesData.forEach(course => { 
+                const courseCard = document.createElement('div'); 
+                courseCard.className = 'course-card'; 
+                courseCard.setAttribute('data-course-id', course.id); 
+                
+                let coursePdfsHTML = `<div class="file-section"><h4 class="text-blue-700">Course Materials:</h4><div class="file-list">`; 
+                if (course.coursePdfs && course.coursePdfs.length > 0) { 
+                    course.coursePdfs.forEach(pdf => {
+                        // Only create a link if a URL is available (i.e., if it's a newly uploaded file in the current session)
+                        if (pdf.url) {
+                            coursePdfsHTML += `<a href="${pdf.url}" target="_blank" rel="noopener noreferrer" class="compact-pdf-link-course" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name}</span></a>`; 
+                        } else {
+                            // For files loaded from local storage without a URL
+                            coursePdfsHTML += `<span class="compact-pdf-link-course text-gray-500 italic" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name} (Session-only)</span></span>`;
+                        }
+                    }); 
+                } else { coursePdfsHTML += '<p class="text-xs text-gray-500 italic py-0.5">No course PDF(s).</p>'; } 
+                coursePdfsHTML += '</div></div>'; 
+                
+                let exercisePdfsHTML = `<div class="file-section"><h4 class="text-emerald-700">Exercise Materials:</h4><div class="file-list">`; 
+                if (course.exercisePdfs && course.exercisePdfs.length > 0) { 
+                    course.exercisePdfs.forEach(pdf => {
+                        // Only create a link if a URL is available
+                        if (pdf.url) {
+                            exercisePdfsHTML += `<a href="${pdf.url}" target="_blank" rel="noopener noreferrer" class="compact-pdf-link-exercise" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name}</span></a>`; 
+                        } else {
+                            // For files loaded from local storage without a URL
+                            exercisePdfsHTML += `<span class="compact-pdf-link-exercise text-gray-500 italic" title="${pdf.name}">${iconFilePDF} <span class="file-name">${pdf.name} (Session-only)</span></span>`;
+                        }
+                    }); 
+                } else { exercisePdfsHTML += '<p class="text-xs text-gray-500 italic py-0.5">No exercise PDF(s).</p>'; } 
+                exercisePdfsHTML += '</div></div>'; 
+                
+                let actionButtonsHTML = ''; 
+                if (currentUserRole === 'admin') { 
+                    actionButtonsHTML = `<div class="actions"><button data-course-id="${course.id}" class="btn btn-sm btn-warning edit-course-btn">${iconEdit} Edit</button><button data-course-id="${course.id}" class="btn btn-sm btn-danger remove-course-btn">${iconRemove} Remove</button></div>`; 
+                } 
+                courseCard.innerHTML = `
+                    <div><h3>${course.title}</h3></div>
+                    <div class="file-sections-container">${coursePdfsHTML}${exercisePdfsHTML}</div>
+                    ${actionButtonsHTML}`; 
+                courseListDiv.appendChild(courseCard); 
+            }); 
+            if (currentUserRole === 'admin') { 
+                document.querySelectorAll('.remove-course-btn').forEach(b => b.addEventListener('click', (e) => handleRemoveCourse(e.currentTarget.dataset.courseId))); 
+                document.querySelectorAll('.edit-course-btn').forEach(b => b.addEventListener('click', (e) => openEditModal(e.currentTarget.dataset.courseId))); 
+            } 
+        }
+        
+        // --- Local Storage Functions ---
+        function saveCoursesData() {
+            // Create a simplified version of coursesData for local storage
+            // This will only store the metadata (id, title, file names), not the actual file objects or temporary URLs.
+            const simplifiedCourses = coursesData.map(course => ({
+                id: course.id,
+                title: course.title,
+                coursePdfs: course.coursePdfs ? course.coursePdfs.map(pdf => ({ id: pdf.id, name: pdf.name })) : [],
+                exercisePdfs: course.exercisePdfs ? course.exercisePdfs.map(pdf => ({ id: pdf.id, name: pdf.name })) : []
+            }));
+            localStorage.setItem('eltIngCourses', JSON.stringify(simplifiedCourses));
+        }
+
+        function loadCoursesData() {
+            const storedData = localStorage.getItem('eltIngCourses');
+            if (storedData) {
+                coursesData = JSON.parse(storedData);
+                // When loaded, PDF objects will only have 'id' and 'name'.
+                // The 'url' property will be missing, so links won't be active.
+                // The renderCourses function handles this by checking for pdf.url.
+            }
+        }
+
+        // Handles adding a new course
+        async function handleAddCourse(event) { 
+            event.preventDefault(); 
+            addCourseSpinner.style.display = 'inline-block'; addCourseSubmitBtn.disabled = true; 
+            formMessage.textContent = ''; 
+            const title = document.getElementById('courseTitle').value.trim(); 
+            if (!title) { 
+                formMessage.textContent = 'Course Title is required.'; formMessage.className = 'mt-4 text-sm text-red-600 h-5'; 
+                addCourseSpinner.style.display = 'none'; addCourseSubmitBtn.disabled = false; return; 
+            } 
+            const processFiles = (tempFilesArray) => { 
+                return tempFilesArray.map(tempFile => { 
+                    const objectURL = URL.createObjectURL(tempFile.fileObject); 
+                    objectUrlsToRevoke.push(objectURL); 
+                    return { id: `file_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, name: tempFile.name, url: objectURL, fileObject: tempFile.fileObject }; 
+                }); 
+            }; 
+            await new Promise(resolve => setTimeout(resolve, 300)); // Simulate async operation
+            const newCourse = { 
+                id: `course_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, title, 
+                coursePdfs: processFiles(tempSelectedCoursePdfs), 
+                exercisePdfs: processFiles(tempSelectedExercisePdfs) 
+            }; 
+            coursesData.push(newCourse); 
+            renderCourses(); 
+            saveCoursesData(); // Save to local storage after adding
+            addCourseForm.reset(); 
+            tempSelectedCoursePdfs = []; tempSelectedExercisePdfs = []; 
+            renderFilePreviewList([], coursePdfsAddPreview, ()=>{}); 
+            renderFilePreviewList([], exercisePdfsAddPreview, ()=>{}); 
+            formMessage.textContent = `Course "${title}" added!`; formMessage.className = 'mt-4 text-sm text-green-600 h-5'; 
+            addCourseSpinner.style.display = 'none'; addCourseSubmitBtn.disabled = false; 
+            setTimeout(() => formMessage.textContent = '', 4000); 
+        }
+
+        // Handles removing an existing course
+        function handleRemoveCourse(courseId) { 
+            const courseIndex = coursesData.findIndex(c => c.id === courseId); 
+            if (courseIndex > -1) { 
+                const removedCourse = coursesData.splice(courseIndex, 1)[0]; 
+                const revokeFileUrls = (pdfArray) => pdfArray.forEach(pdf => { 
+                    if (pdf.url) { // Only revoke if a URL exists
+                        URL.revokeObjectURL(pdf.url); 
+                        objectUrlsToRevoke = objectUrlsToRevoke.filter(u => u !== pdf.url); 
+                    }
+                }); 
+                if(removedCourse.coursePdfs) revokeFileUrls(removedCourse.coursePdfs); 
+                if(removedCourse.exercisePdfs) revokeFileUrls(removedCourse.exercisePdfs); 
+                renderCourses(); 
+                saveCoursesData(); // Save to local storage after removing
+                formMessage.textContent = `Course "${removedCourse.title}" removed.`; formMessage.className = 'mt-4 text-sm text-blue-600 h-5'; 
+                setTimeout(() => formMessage.textContent = '', 3000); 
+            } 
+        }
+
+        let filesForEditModal = { coursePdfs: [], exercisePdfs: [] };
+
+        // Opens the edit course modal
+        function openEditModal(courseId) { 
+            const course = coursesData.find(c => c.id === courseId); 
+            if (!course) return; 
+
+            editCourseIdInput.value = course.id; 
+            editCourseTitleInput.value = course.title; 
+            
+            // Reset temporary file arrays for new uploads in edit modal
+            filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; 
+            
+            // Clear file inputs and their previews
+            addMoreCoursePdfsInput.value = ''; 
+            addMoreExercisePdfsInput.value = ''; 
+            renderFilePreviewList([], addMoreCoursePdfsPreview, () => {}); 
+            renderFilePreviewList([], addMoreExercisePdfsPreview, () => {}); 
+            
+            // Render current existing files
+            renderCurrentFilesForEdit(course.coursePdfs, currentCoursePdfsList, 'coursePdfs', course.id); 
+            renderCurrentFilesForEdit(course.exercisePdfs, currentExercisePdfsList, 'exercisePdfs', course.id); 
+            
+            editCourseModal.style.display = 'flex'; 
+        }
+        
+        // Renders existing files in the edit modal, with remove functionality
+        function renderCurrentFilesForEdit(pdfArray, container, fileType, courseId) {
+            container.innerHTML = '';
+            if (!pdfArray || pdfArray.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-400 p-1 italic">No files currently.</p>'; 
+                return;
+            }
+            pdfArray.forEach(pdf => {
+                const item = document.createElement('div');
+                item.className = 'file-preview-item'; // Use the same compact styling
+                item.innerHTML = `<span class="file-name-preview">${pdf.name}</span>
+                                  <button type="button" class="btn-icon text-red-500 hover:text-red-600 remove-existing-file-btn" data-file-id="${pdf.id}" data-file-type="${fileType}" data-course-id="${courseId}">${iconSmallRemove}</button>`;
+                container.appendChild(item);
+            });
+            container.querySelectorAll('.remove-existing-file-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const { fileId, fileType, courseId: cId } = e.currentTarget.dataset; 
+                    removeExistingFileFromCourse(cId, fileType, fileId);
+                    const currentCourse = coursesData.find(c => c.id === cId);
+                    if(currentCourse) {
+                        if(fileType === 'coursePdfs') renderCurrentFilesForEdit(currentCourse.coursePdfs, currentCoursePdfsList, 'coursePdfs', cId);
+                        else renderCurrentFilesForEdit(currentCourse.exercisePdfs, currentExercisePdfsList, 'exercisePdfs', cId);
+                    }
+                });
+            });
+        }
+        
+        // Removes an existing file from a course's file list
+        function removeExistingFileFromCourse(courseId, fileType, fileIdToRemove) { 
+            const course = coursesData.find(c => c.id === courseId); 
+            if (!course) return; 
+            const fileList = course[fileType]; 
+            const fileIndex = fileList.findIndex(f => f.id === fileIdToRemove); 
+            if (fileIndex > -1) { 
+                const removedFile = fileList.splice(fileIndex, 1)[0]; 
+                if (removedFile.url) { // Only revoke if a URL exists
+                    URL.revokeObjectURL(removedFile.url); 
+                    objectUrlsToRevoke = objectUrlsToRevoke.filter(u => u !== removedFile.url); 
+                }
+                saveCoursesData(); // Save to local storage after removing a file from edit modal
+            } 
+        }
+        
+        // Updates the file preview list for new files added in the edit modal
+        function updateEditModalFilePreview(fileListInput, targetTempArray, previewContainer) { 
+            targetTempArray.length = 0; 
+            for (let i = 0; i < fileListInput.files.length; i++) { 
+                targetTempArray.push({ id: `temp_edit_${Date.now()}_${i}`, name: fileListInput.files[i].name, fileObject: fileListInput.files[i] }); 
+            } 
+            renderFilePreviewList(targetTempArray, previewContainer, (fileId) => { 
+                const indexToRemove = targetTempArray.findIndex(f => f.id === fileId); 
+                if (indexToRemove > -1) targetTempArray.splice(indexToRemove, 1); 
+                
+                // Update the actual file input based on the modified targetTempArray
+                const dataTransfer = new DataTransfer();
+                targetTempArray.forEach(tempFile => dataTransfer.items.add(tempFile.fileObject));
+                if (fileListInput) fileListInput.files = dataTransfer.files;
+
+                renderFilePreviewList(targetTempArray, previewContainer, ()=>{ }); 
+            }); 
+        }
+
+        // Handles saving changes from the edit modal
+        function handleSaveEdit(event) { 
+            event.preventDefault(); 
+            const courseId = editCourseIdInput.value; 
+            const course = coursesData.find(c => c.id === courseId); 
+            if (!course) return; 
+
+            const newTitle = editCourseTitleInput.value.trim(); 
+            if (!newTitle) { 
+                alert("Course Title cannot be empty."); // Consider using a custom modal for alerts
+                return; 
+            } 
+            course.title = newTitle; 
+            
+            const processNewFiles = (tempFilesArray) => { 
+                return tempFilesArray.map(tempFile => { 
+                    const objectURL = URL.createObjectURL(tempFile.fileObject); 
+                    objectUrlsToRevoke.push(objectURL); 
+                    return { id: `file_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, name: tempFile.name, url: objectURL, fileObject: tempFile.fileObject }; 
+                }); 
+            }; 
+            
+            const newCoursePdfs = processNewFiles(filesForEditModal.coursePdfs); 
+            const newExercisePdfs = processNewFiles(filesForEditModal.exercisePdfs); 
+            
+            // Add new files to the existing arrays
+            course.coursePdfs.push(...newCoursePdfs); 
+            course.exercisePdfs.push(...newExercisePdfs); 
+            
+            renderCourses(); 
+            saveCoursesData(); // Save to local storage after editing
+            closeEditModal(); 
+            formMessage.textContent = `Course "${course.title}" updated.`; 
+            formMessage.className = 'mt-4 text-sm text-green-600 h-5'; 
+            setTimeout(() => formMessage.textContent = '', 3000); 
+        }
+
+        // Closes the edit course modal and resets the form
+        function closeEditModal() { 
+            editCourseModal.style.display = 'none'; 
+            editCourseForm.reset(); 
+        }
+
+        // Sets the current year in the footer
+        function setCurrentYear() { 
+            const year = new Date().getFullYear(); 
+            document.getElementById('current-year-login').textContent = year; 
+            document.getElementById('current-year-app').textContent = year; 
+        }
+        
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setCurrentYear();
+            loadCoursesData(); // Load data on startup
+            const storedRole = sessionStorage.getItem('userRole');
+            if (storedRole) { currentUserRole = storedRole; switchView('app'); updateUserUI(); } 
+            else { switchView('login'); }
+
+            // Add Course Form File Inputs
+            document.getElementById('coursePdfsAdd').addEventListener('change', (e) => updateAddFormFilePreview(e.target.files, tempSelectedCoursePdfs, coursePdfsAddPreview));
+            document.getElementById('exercisePdfsAdd').addEventListener('change', (e) => updateAddFormFilePreview(e.target.files, tempSelectedExercisePdfs, exercisePdfsAddPreview));
+            
+            // Edit Course Modal File Inputs
+            addMoreCoursePdfsInput.addEventListener('change', (e) => updateEditModalFilePreview(e.target, filesForEditModal.coursePdfs, addMoreCoursePdfsPreview));
+            addMoreExercisePdfsInput.addEventListener('change', (e) => updateEditModalFilePreview(e.target, filesForEditModal.exercisePdfs, addMoreExercisePdfsPreview));
+
+            // Login/Logout
+            loginForm.addEventListener('submit', (e) => { e.preventDefault(); handleLogin('admin', e.target.username.value, e.target.password.value); });
+            studentLoginBtn.addEventListener('click', () => handleLogin('student'));
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // Add Course Form Submission
+            if (addCourseForm) addCourseForm.addEventListener('submit', handleAddCourse);
+            
+            // Edit Course Modal Interactions
+            closeEditModalBtn.addEventListener('click', closeEditModal);
+            cancelEditBtn.addEventListener('click', closeEditModal);
+            // Prevent clicks on modal content from closing the modal
+            if (editCourseForm) editCourseForm.addEventListener('click', e => e.stopPropagation()); 
+            if (editCourseForm) editCourseForm.addEventListener('submit', handleSaveEdit);
+            // Close modal when clicking outside of it
+            editCourseModal.addEventListener('click', (e) => { if(e.target === editCourseModal) closeEditModal(); });
+
+            // Revoke Object URLs on page unload to prevent memory leaks
+            window.addEventListener('beforeunload', () => { objectUrlsToRevoke.forEach(url => URL.revokeObjectURL(url)); objectUrlsToRevoke = []; });
+        });
+    </script>
+</body>
+</html>
