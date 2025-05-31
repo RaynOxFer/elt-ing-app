@@ -126,6 +126,39 @@
             }
 
             // --- Core Functions (now defined within DOMContentLoaded scope) ---
+            function setupFirestoreListener(appId) { // Accept appId as parameter
+                if (!window.db || !window.isAuthReady) {
+                    console.warn("Firestore Listener: Database or Auth not ready for listener setup. Retrying on next auth state change.");
+                    return;
+                }
+                console.log("Firestore Listener: Setting up listener...");
+                const coursesCollectionPath = `artifacts/${appId}/public/data/courses`;
+                const coursesCollectionRef = collection(window.db, coursesCollectionPath);
+                console.log("Firestore Listener: Monitoring path:", coursesCollectionPath);
+
+                onSnapshot(coursesCollectionRef, (snapshot) => {
+                    console.log("Firestore Listener: Snapshot received!");
+                    const fetchedCourses = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        fetchedCourses.push({
+                            id: doc.id,
+                            title: data.title,
+                            coursePdfs: data.coursePdfs || [], 
+                            exercisePdfs: data.exercisePdfs || [] 
+                        });
+                    });
+                    coursesData = fetchedCourses; 
+                    console.log("Firestore Listener: coursesData updated:", coursesData);
+                    renderCourses(); 
+                    console.log("Courses data updated from Firestore.");
+                }, (error) => {
+                    console.error("Error listening to Firestore courses:", error);
+                    formMessage.textContent = "Error loading courses: " + error.message + ". Please check console and Firebase rules.";
+                    formMessage.className = 'mt-4 text-sm text-red-600 h-5';
+                });
+            }
+
             function switchView(viewToShow) { 
                 loginView.classList.remove('active'); 
                 appView.classList.remove('active'); 
@@ -372,7 +405,8 @@
                 }
             }
 
-            let filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; // Re-declared here, but should be global or passed
+            // filesForEditModal is now declared globally at the top of the module script
+            // let filesForEditModal = { coursePdfs: [], exercisePdfs: [] }; 
 
             function openEditModal(courseId) { 
                 const course = coursesData.find(c => c.id === courseId); 
