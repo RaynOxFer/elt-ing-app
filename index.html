@@ -6,9 +6,11 @@
     <title>ELT ING - Share Courses & Exercises</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Updated Firebase SDK version to 11.8.1
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js"; // Added getAnalytics import
 
         // Global variables for Firebase instances
         window.firebaseApp = null;
@@ -16,37 +18,29 @@
         window.auth = null;
         window.userId = null;
         window.isAuthReady = false; // Flag to indicate if auth is ready
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-
 
         // Initialize Firebase and set up auth listener
         document.addEventListener('DOMContentLoaded', async () => {
             try {
-                // PASTE YOUR ACTUAL FIREBASE CONFIGURATION HERE
-                // IMPORTANT: Replace all placeholder values with your Firebase project's actual configuration.
-                // You can find this in your Firebase project settings -> Project settings -> Your apps -> Web app.
-               const firebaseConfig = {
-  apiKey: "AIzaSyBMtCujwXGe6SEnNlYd7NzcZBRxGzeSdAw",
-  authDomain: "elt-ing.firebaseapp.com",
-  projectId: "elt-ing",
-  storageBucket: "elt-ing.firebasestorage.app",
-  messagingSenderId: "298857320023",
-  appId: "1:298857320023:web:2181d18b0f0e83752fdd12",
-  measurementId: "G-H1KZMJ92Z7"
-};
+                // YOUR ACTUAL FIREBASE CONFIGURATION (provided by user)
+                const firebaseConfig = {
+                  apiKey: "AIzaSyBMtCujwXGe6SEnNlYd7NzcZBRxGzeSdAw",
+                  authDomain: "elt-ing.firebaseapp.com",
+                  projectId: "elt-ing",
+                  storageBucket: "elt-ing.firebasestorage.app",
+                  messagingSenderId: "298857320023",
+                  appId: "1:298857320023:web:2181d18b0f0e83752fdd12",
+                  measurementId: "G-H1KZMJ92Z7"
+                };
                 // END OF FIREBASE CONFIGURATION
 
-                // IMPORTANT: Use the same value as 'projectId' from your firebaseConfig above.
-                const appId = "elt-ing; 
-
-                // Removed the explicit check that caused the console error.
-                // Firebase initialization will now proceed even with placeholders,
-                // but will only connect to your project if the config is valid.
-                // You MUST replace the placeholders for data persistence to work.
+                // Using the projectId as the appId for collection paths
+                const appId = "elt-ing"; 
 
                 window.firebaseApp = initializeApp(firebaseConfig);
                 window.db = getFirestore(window.firebaseApp);
                 window.auth = getAuth(window.firebaseApp);
+                const analytics = getAnalytics(window.firebaseApp); // Initialize analytics (if needed)
 
                 // Sign in anonymously by default
                 await signInAnonymously(window.auth);
@@ -62,7 +56,7 @@
                     }
                     window.isAuthReady = true;
                     // Now that auth is ready, set up Firestore listener and update UI
-                    setupFirestoreListener();
+                    setupFirestoreListener(appId); // Pass appId to listener setup
                     updateUserUI(); // Call this here to ensure UI reflects auth state
                 });
 
@@ -75,13 +69,12 @@
         });
 
         // Firestore Listener Setup
-        function setupFirestoreListener() {
+        function setupFirestoreListener(appId) { // Accept appId as parameter
             if (!window.db || !window.isAuthReady) {
                 console.warn("Firestore or Auth not ready for listener setup.");
                 return;
             }
 
-            const appId = "elt-ing"; // Ensure this matches your Firebase projectId
             const coursesCollectionPath = `artifacts/${appId}/public/data/courses`;
             const coursesCollectionRef = collection(window.db, coursesCollectionPath);
 
@@ -553,7 +546,7 @@
             }; 
             
             try {
-                const appId = "YOUR_ACTUAL_PROJECT_ID_FROM_FIREBASE"; // Use the correct appId variable
+                const appId = "elt-ing"; // Use the correct appId from your Firebase project
                 const coursesCollectionRef = collection(window.db, `artifacts/${appId}/public/data/courses`);
                 await addDoc(coursesCollectionRef, newCourseData);
 
@@ -593,7 +586,7 @@
             if (!confirmDelete) return;
 
             try {
-                const appId = "YOUR_ACTUAL_PROJECT_ID_FROM_FIREBASE"; // Use the correct appId variable
+                const appId = "elt-ing"; // Use the correct appId from your Firebase project
                 const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
                 await deleteDoc(courseDocRef);
 
@@ -695,7 +688,7 @@
 
                 // Update the course in Firestore
                 try {
-                    const appId = "YOUR_ACTUAL_PROJECT_ID_FROM_FIREBASE"; // Use the correct appId variable
+                    const appId = "elt-ing"; // Use the correct appId from your Firebase project
                     const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
                     // Create a copy of the course data to update, ensuring only metadata is sent
                     const updatedCourseData = {
@@ -782,7 +775,7 @@
             };
 
             try {
-                const appId = "YOUR_ACTUAL_PROJECT_ID_FROM_FIREBASE"; // Use the correct appId variable
+                const appId = "elt-ing"; // Use the correct appId from your Firebase project
                 const courseDocRef = doc(window.db, `artifacts/${appId}/public/data/courses`, courseId);
                 await updateDoc(courseDocRef, updatedCourseDataForFirestore);
                 
